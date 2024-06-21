@@ -4,19 +4,15 @@ import azure.cognitiveservices.speech as speechsdk
 from pydub import AudioSegment
 import time
 from tqdm import tqdm
-from fastapi import FastAPI, UploadFile, File
-from fastapi.responses import JSONResponse
-import shutil
 
 # Carrega variáveis do arquivo .env / Load variables from .env file
 load_dotenv()
 subscription_key = os.getenv('AZURE_SUBSCRIPTION_KEY')
 service_region = os.getenv('AZURE_SERVICE_REGION')
 
+ 
 # Configura o serviço de reconhecimento de fala da Azure / Configure Azure Speech Service
 speech_config = speechsdk.SpeechConfig(subscription=subscription_key, region=service_region)
-
-app = FastAPI()
 
 # Função para extrair áudio de um vídeo e converter em texto / Function to extract audio from a video and convert to text
 def extract_audio_and_recognize_text(video_file):
@@ -64,29 +60,11 @@ def extract_audio_and_recognize_text(video_file):
     total_time = time.time() - start_time
     print(f'Total Time: {total_time} seconds')
 
-    # Salva o texto reconhecido em um arquivo .txt / Save the recognized text to a .txt file
-    transcript_file = video_file.replace('.mp4', '.txt')
-    with open(transcript_file, 'w') as f:
-        f.write(" ".join(recognized_text))
-    
-    return transcript_file
+    return recognized_text
 
-# Endpoint para upload e processamento de vídeos / Endpoint for uploading and processing videos
-@app.post("/upload_video/")
-async def upload_video(file: UploadFile = File(...)):
-    video_path = f"uploaded_{file.filename}"
-    
-    # Salva o arquivo de vídeo enviado / Save the uploaded video file
-    with open(video_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-    
-    try:
-        transcript_file = extract_audio_and_recognize_text(video_path)
-        return JSONResponse(content={"message": "Transcription completed", "transcript_file": transcript_file})
-    except Exception as e:
-        return JSONResponse(content={"error": str(e)})
-
-# Método para chamar a OpenAI (RAG) / Method to call OpenAI (RAG)
-def call_openai_for_rag(text):
-    # Esta função está pronta para ser implementada com a chamada à OpenAI / This function is ready to be implemented with OpenAI call
-    pass
+# Define o arquivo de vídeo a ser processado / Define the video file to be processed
+video_file = "video/video.mp4"  # Verifique se o caminho está correto / Ensure the path is correct
+# Chama a função de extração e reconhecimento de texto / Call the function to extract and recognize text
+recognized_text = extract_audio_and_recognize_text(video_file)
+# Imprime o texto final reconhecido / Print the final recognized text
+print("Final recognized text: ", " ".join(recognized_text))
