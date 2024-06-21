@@ -7,6 +7,7 @@ from tqdm import tqdm
 from fastapi import FastAPI, UploadFile, File
 from fastapi.responses import JSONResponse
 import shutil
+from typing import List
 
 # Carrega variáveis do arquivo .env / Load variables from .env file
 load_dotenv()
@@ -15,8 +16,46 @@ service_region = os.getenv('AZURE_SERVICE_REGION')
 
 # Configura o serviço de reconhecimento de fala da Azure / Configure Azure Speech Service
 speech_config = speechsdk.SpeechConfig(subscription=subscription_key, region=service_region)
+speech_config.speech_recognition_language = "pt-BR"  # Define o idioma para português do Brasil / Set language to Brazilian Portuguese
 
 app = FastAPI()
+
+# Função para dividir o áudio em segmentos menores / Function to split audio into smaller segments
+def split_audio(audio_file, segment_length_ms=60000):
+    audio = AudioSegment.from_file(audio_file)
+    segments = []
+    for i in range(0, len(audio), segment_length_ms):
+        segments.append(audio[i:i + segment_length_ms])
+    return segments
+
+# Função para reconhecer fala de um segmento de áudio / Function to recognize speech from an audio segment
+def recognize_speech_from_segment(segment_file) -> List[str]:
+    audio_input = speechsdk.AudioConfig(filename=segment_file)
+    speech_recognizer = speechsdk.SpeechRecognizer(speech_config=speech_config, audio_config=audio_input)
+
+    result_texts = []
+
+    def recognized(evt):
+        result_texts.append(evt.result.text)
+        print(f'Recognized: {evt.result.text}')
+
+    done = False
+
+    def stop(evt):
+        nonlocal done
+        print('CLOSING on {}'.format(evt))
+        done = True
+
+    speech_recognizer.recognized.connect(recognized)
+    speech_recognizer.session_stopped.connect(stop)
+    speech_recognizer.canceled.connect(stop)
+
+    speech_recognizer.start_continuous_recognition()
+
+    while not done:
+        time.sleep(0.1)
+
+    return result_texts
 
 # Função para extrair áudio de um vídeo e converter em texto / Function to extract audio from a video and convert to text
 def extract_audio_and_recognize_text(video_file):
@@ -28,45 +67,29 @@ def extract_audio_and_recognize_text(video_file):
     audio_file = "extracted_audio.wav"
     AudioSegment.from_file(video_file).export(audio_file, format="wav")
 
-    # Configura a entrada de áudio para o reconhecedor de fala / Configure audio input for speech recognizer
-    audio_input = speechsdk.AudioConfig(filename=audio_file)
-    speech_recognizer = speechsdk.SpeechRecognizer(speech_config=speech_config, audio_config=audio_input)
+    # Divide o áudio em segmentos menores / Split the audio into smaller segments
+    segments = split_audio(audio_file)
 
     recognized_text = []
 
-    # Função chamada sempre que um segmento de áudio é reconhecido / Function called whenever a segment of audio is recognized
-    def recognized(evt):
-        recognized_text.append(evt.result.text)
-        print(f'Recognized: {evt.result.text}')
+    start_time = time.time()  # Define o início do tempo / Define the start time
 
-    # Função chamada quando a sessão de reconhecimento é interrompida / Function called when recognition session is stopped
-    def stop(evt):
-        print('CLOSING on {}'.format(evt))
-        speech_recognizer.stop_continuous_recognition()
+    # Processa cada segmento individualmente / Process each segment individually
+    for i, segment in enumerate(tqdm(segments, desc="Processing")):
+        segment_file = f"temp_segment_{i}.wav"
+        segment.export(segment_file, format="wav")
+        segment_texts = recognize_speech_from_segment(segment_file)
+        recognized_text.extend(segment_texts)
 
-    # Conecta os eventos de reconhecimento às funções definidas acima / Connect recognition events to the functions defined above
-    speech_recognizer.recognized.connect(recognized)
-    speech_recognizer.session_stopped.connect(stop)
-    speech_recognizer.canceled.connect(stop)
-
-    # Inicia o reconhecimento contínuo / Start continuous recognition
-    start_time = time.time()
-    speech_recognizer.start_continuous_recognition()
-
-    # Calcula a duração do áudio para a barra de progresso / Calculate audio duration for progress bar
-    duration = AudioSegment.from_file(video_file).duration_seconds
-    with tqdm(total=duration, desc="Processing") as pbar:
-        # Atualiza a barra de progresso enquanto o reconhecimento continua / Update progress bar as recognition continues
-        while speech_recognizer.properties.get_property(speechsdk.PropertyId.SpeechServiceConnection_Url):
-            time.sleep(1)
-            pbar.update(1)
-    
     total_time = time.time() - start_time
     print(f'Total Time: {total_time} seconds')
 
     # Salva o texto reconhecido em um arquivo .txt / Save the recognized text to a .txt file
     transcript_file = video_file.replace('.mp4', '.txt')
-    with open(transcript_file, 'w') as f:
+    print("Recognized Text: ", recognized_text)   
+    print("Transcript File: ", transcript_file)
+     
+    with open(transcript_file, 'w', encoding='utf-8') as f:
         f.write(" ".join(recognized_text))
     
     return transcript_file
@@ -90,3 +113,4 @@ async def upload_video(file: UploadFile = File(...)):
 def call_openai_for_rag(text):
     # Esta função está pronta para ser implementada com a chamada à OpenAI / This function is ready to be implemented with OpenAI call
     pass
+
