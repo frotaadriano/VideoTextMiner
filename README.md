@@ -38,17 +38,17 @@ sudo apt-get install ffmpeg
 AZURE_SUBSCRIPTION_KEY=YourAzureSubscriptionKey
 AZURE_SERVICE_REGION=YourAzureServiceRegion
 
-# Usage
+## Usage
 Place your video file in the 'video' project directory.
 Run the script executing: python main.py
 
-# License
+## License
 This project is licensed under the MIT License. See the LICENSE file for details.
 
-# Contributing
+## Contributing
 Contributions are welcome! Please open an issue or submit a pull request for any improvements or bug fixes.
 
-# Acknowledgements
+## Acknowledgements
 Azure Cognitive Services
 FFmpeg
 pydub
