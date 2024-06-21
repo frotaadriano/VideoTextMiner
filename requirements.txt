@@ -1,0 +1,4 @@
+pydub
+tqdm
+azure-cognitiveservices-speech
+python-dotenv
