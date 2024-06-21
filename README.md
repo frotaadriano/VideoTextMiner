@@ -48,6 +48,26 @@ Run the script executing: python Example1.py
 python -m uvicorn main:app --reload
 http://127.0.0.1:8000/docs#
 
+## Improvements
+
+### Language Selection
+- Allow users to select the language for transcription through an API parameter.
+- Support for additional languages as needed.
+
+### Parametrization for Other Services
+- Add support for other speech-to-text services from different cloud providers such as Google Cloud Speech-to-Text and AWS Transcribe.
+- Create an interface to switch between different service providers based on user preference or availability.
+
+### Offline Mode
+- Implement an offline mode using libraries like `vosk` or `pocketsphinx` for speech recognition without relying on cloud services.
+
+### Enhanced File Handling
+- Add support for various video file formats and audio extraction methods.
+- Implement error handling for unsupported formats and large file uploads.
+
+### Advanced Features
+- Integrate with other AI services to provide more advanced features such as sentiment analysis, keyword extraction, and summarization.
+- Allow create a PowerPoint template and styling through additional API parameters.
 
 
 ## License
